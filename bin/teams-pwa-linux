@@ -1,0 +1,361 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_ID="io.github.kwran420.TeamsPwaLinux"
+APP_NAME="Teams PWA Linux"
+VERSION="0.1.0"
+
+DEFAULT_URL="https://teams.cloud.microsoft/?clientType=pwa"
+MICROSOFT_URL="https://teams.microsoft.com/v2/?clientType=pwa"
+PERSONAL_URL="https://teams.live.com/v2/?clientType=pwa"
+
+xdg_config_home="${XDG_CONFIG_HOME:-$HOME/.config}"
+xdg_cache_home="${XDG_CACHE_HOME:-$HOME/.cache}"
+xdg_state_home="${XDG_STATE_HOME:-$HOME/.local/state}"
+
+CONFIG_DIR="${TEAMS_PWA_CONFIG_DIR:-$xdg_config_home/teams-pwa-linux}"
+PROFILE_DIR="${TEAMS_PWA_PROFILE_DIR:-$CONFIG_DIR/chromium-profile}"
+CACHE_DIR="${TEAMS_PWA_CACHE_DIR:-$xdg_cache_home/teams-pwa-linux}"
+STATE_DIR="${TEAMS_PWA_STATE_DIR:-$xdg_state_home/teams-pwa-linux}"
+LOG_FILE="$STATE_DIR/launcher.log"
+
+usage() {
+  cat <<'USAGE'
+Teams PWA Linux
+
+Usage:
+  teams-pwa-linux [open] [URL]
+  teams-pwa-linux --cloud [URL]
+  teams-pwa-linux --microsoft [URL]
+  teams-pwa-linux --personal [URL]
+  teams-pwa-linux status
+  teams-pwa-linux doctor
+  teams-pwa-linux print-command [URL]
+  teams-pwa-linux reset-profile
+  teams-pwa-linux clear-cache
+  teams-pwa-linux --help
+
+Environment:
+  TEAMS_PWA_BROWSER       Browser executable or absolute path.
+  TEAMS_PWA_URL           Default URL when no URL is supplied.
+  TEAMS_PWA_PROFILE_DIR   Chromium user-data-dir for Teams.
+  TEAMS_PWA_EXTRA_FLAGS   Extra Chromium flags split on spaces.
+
+Notes:
+  The default URL is https://teams.cloud.microsoft/?clientType=pwa.
+  Use --microsoft to force https://teams.microsoft.com/v2/?clientType=pwa.
+USAGE
+}
+
+die() {
+  printf '%s\n' "error: $*" >&2
+  exit 1
+}
+
+info() {
+  printf '%s\n' "$*"
+}
+
+log() {
+  mkdir -p "$STATE_DIR"
+  printf '[%s] %s\n' "$(date -Is)" "$*" >>"$LOG_FILE"
+}
+
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+find_browser() {
+  if [[ -n "${TEAMS_PWA_BROWSER:-}" ]]; then
+    if [[ -x "$TEAMS_PWA_BROWSER" ]]; then
+      printf '%s\n' "$TEAMS_PWA_BROWSER"
+      return 0
+    fi
+    if command_exists "$TEAMS_PWA_BROWSER"; then
+      command -v "$TEAMS_PWA_BROWSER"
+      return 0
+    fi
+    die "TEAMS_PWA_BROWSER is set but not executable: $TEAMS_PWA_BROWSER"
+  fi
+
+  local candidate
+  for candidate in \
+    microsoft-edge-stable microsoft-edge \
+    google-chrome-stable google-chrome chrome \
+    chromium chromium-browser \
+    brave-browser vivaldi; do
+    if command_exists "$candidate"; then
+      command -v "$candidate"
+      return 0
+    fi
+  done
+
+  die "no Chromium-family browser found. Install Microsoft Edge, Google Chrome, Chromium, Brave, or Vivaldi."
+}
+
+browser_version() {
+  local browser="$1"
+  "$browser" --version 2>/dev/null | head -n 1 || true
+}
+
+urlencode() {
+  local input="$1"
+  local output=""
+  local i char encoded
+  local LC_ALL=C
+
+  for ((i = 0; i < ${#input}; i++)); do
+    char="${input:i:1}"
+    case "$char" in
+      [a-zA-Z0-9.~_-]) output+="$char" ;;
+      *) printf -v encoded '%%%02X' "'$char"; output+="$encoded" ;;
+    esac
+  done
+  printf '%s\n' "$output"
+}
+
+default_url() {
+  printf '%s\n' "${TEAMS_PWA_URL:-$DEFAULT_URL}"
+}
+
+deep_link_url() {
+  local input="$1"
+  local base="${TEAMS_PWA_URL:-$DEFAULT_URL}"
+  printf '%s#deepLink=%s\n' "$base" "$(urlencode "$input")"
+}
+
+normalize_target() {
+  local target="${1:-}"
+  if [[ -z "$target" ]]; then
+    default_url
+    return 0
+  fi
+
+  case "$target" in
+    web+msteams:*|msteams:*|ms-teams:*)
+      deep_link_url "$target"
+      ;;
+    teams:*)
+      deep_link_url "$target"
+      ;;
+    https://teams.microsoft.com*|https://teams.cloud.microsoft*|https://teams.live.com*)
+      printf '%s\n' "$target"
+      ;;
+    *)
+      printf '%s\n' "$target"
+      ;;
+  esac
+}
+
+extra_flags() {
+  if [[ -n "${TEAMS_PWA_EXTRA_FLAGS:-}" ]]; then
+    # shellcheck disable=SC2206
+    local split_flags=($TEAMS_PWA_EXTRA_FLAGS)
+    printf '%s\n' "${split_flags[@]}"
+  fi
+}
+
+build_browser_args() {
+  local target="$1"
+  local args=(
+    "--user-data-dir=$PROFILE_DIR"
+    "--profile-directory=Default"
+    "--app=$target"
+    "--class=TeamsPwaLinux"
+    "--name=TeamsPwaLinux"
+    "--no-first-run"
+    "--no-default-browser-check"
+    "--enable-features=WebRTCPipeWireCapturer"
+  )
+
+  if [[ "${TEAMS_PWA_USE_WAYLAND:-0}" == "1" ]]; then
+    args+=("--ozone-platform=wayland")
+  elif [[ "${TEAMS_PWA_OZONE_AUTO:-0}" == "1" ]]; then
+    args+=("--ozone-platform-hint=auto")
+  fi
+
+  mapfile -t user_flags < <(extra_flags)
+  if [[ "${#user_flags[@]}" -gt 0 ]]; then
+    args+=("${user_flags[@]}")
+  fi
+
+  printf '%s\n' "${args[@]}"
+}
+
+print_command() {
+  local target="$1"
+  local browser
+  browser="$(find_browser)"
+  mapfile -t args < <(build_browser_args "$target")
+  printf '%q' "$browser"
+  local arg
+  for arg in "${args[@]}"; do
+    printf ' %q' "$arg"
+  done
+  printf '\n'
+}
+
+launch() {
+  local raw_target="${1:-}"
+  local target browser
+  target="$(normalize_target "$raw_target")"
+  browser="$(find_browser)"
+
+  mkdir -p "$PROFILE_DIR" "$CACHE_DIR" "$STATE_DIR"
+  log "launch browser=$browser target=$target profile=$PROFILE_DIR"
+
+  mapfile -t args < <(build_browser_args "$target")
+  exec "$browser" "${args[@]}"
+}
+
+status() {
+  local browser version desktop_file
+  browser="$(find_browser)"
+  version="$(browser_version "$browser")"
+  desktop_file="${XDG_DATA_HOME:-$HOME/.local/share}/applications/$APP_ID.desktop"
+
+  info "$APP_NAME $VERSION"
+  info "browser: $browser"
+  [[ -n "$version" ]] && info "browser_version: $version"
+  info "default_url: $(default_url)"
+  info "profile_dir: $PROFILE_DIR"
+  info "cache_dir: $CACHE_DIR"
+  info "state_dir: $STATE_DIR"
+  info "desktop_entry: $desktop_file"
+  if [[ -f "$desktop_file" ]]; then
+    info "desktop_entry_installed: yes"
+  else
+    info "desktop_entry_installed: no"
+  fi
+  if command_exists xdg-mime; then
+    info "msteams_handler: $(xdg-mime query default x-scheme-handler/msteams 2>/dev/null || true)"
+    info "web_msteams_handler: $(xdg-mime query default x-scheme-handler/web+msteams 2>/dev/null || true)"
+  fi
+  info "session: ${XDG_SESSION_TYPE:-unknown}"
+  info "desktop: ${XDG_CURRENT_DESKTOP:-unknown}"
+}
+
+check_url() {
+  local url="$1"
+  local browser="$2"
+  local ua
+  ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+
+  if [[ "$browser" == *edge* ]]; then
+    ua="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0"
+  fi
+
+  if ! command_exists curl; then
+    info "curl: missing, skipping URL check for $url"
+    return 0
+  fi
+
+  local tmp
+  tmp="$(mktemp)"
+  if curl -fsSL --max-time 20 -A "$ua" "$url" -o "$tmp" && grep -q 'rel="manifest"' "$tmp"; then
+    rm -f "$tmp"
+    info "url_ok: $url"
+  else
+    rm -f "$tmp"
+    info "url_check_failed: $url"
+    return 1
+  fi
+}
+
+doctor() {
+  status
+  local browser
+  browser="$(find_browser)"
+  check_url "$DEFAULT_URL" "$browser"
+  check_url "$MICROSOFT_URL" "$browser"
+}
+
+safe_remove_dir() {
+  local dir="$1"
+  case "$dir" in
+    "$xdg_config_home/teams-pwa-linux"/*|"$xdg_cache_home/teams-pwa-linux"/*|"$xdg_state_home/teams-pwa-linux"/*)
+      rm -rf -- "$dir"
+      ;;
+    *)
+      if [[ "${TEAMS_PWA_ALLOW_UNSAFE_RESET:-0}" == "1" ]]; then
+        rm -rf -- "$dir"
+      else
+        die "refusing to remove non-default path: $dir"
+      fi
+      ;;
+  esac
+}
+
+reset_profile() {
+  safe_remove_dir "$PROFILE_DIR"
+  info "removed profile: $PROFILE_DIR"
+}
+
+clear_cache() {
+  safe_remove_dir "$CACHE_DIR"
+  info "removed cache: $CACHE_DIR"
+}
+
+main() {
+  local url_mode=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --help|-h)
+        usage
+        exit 0
+        ;;
+      --version)
+        info "$VERSION"
+        exit 0
+        ;;
+      --cloud)
+        url_mode="$DEFAULT_URL"
+        shift
+        ;;
+      --microsoft|--legacy|--classic)
+        url_mode="$MICROSOFT_URL"
+        shift
+        ;;
+      --personal|--live)
+        url_mode="$PERSONAL_URL"
+        shift
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
+  if [[ -n "$url_mode" ]]; then
+    export TEAMS_PWA_URL="$url_mode"
+  fi
+
+  local command="${1:-open}"
+  case "$command" in
+    open|launch)
+      shift || true
+      launch "${1:-}"
+      ;;
+    status)
+      status
+      ;;
+    doctor)
+      doctor
+      ;;
+    print-command)
+      shift || true
+      print_command "$(normalize_target "${1:-}")"
+      ;;
+    reset-profile)
+      reset_profile
+      ;;
+    clear-cache)
+      clear_cache
+      ;;
+    *)
+      launch "$command"
+      ;;
+  esac
+}
+
+main "$@"

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Teams PWA Linux icon">
+  <defs>
+    <linearGradient id="bg" x1="18" y1="16" x2="110" y2="114" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b5ccc"/>
+      <stop offset="1" stop-color="#1f8a70"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="10" width="108" height="108" rx="20" fill="url(#bg)"/>
+  <path d="M38 38h52a14 14 0 0 1 14 14v24a14 14 0 0 1-14 14H65l-21 17v-17h-6a14 14 0 0 1-14-14V52a14 14 0 0 1 14-14z" fill="#fff" opacity=".94"/>
+  <path d="M47 55h34v10H69v31H58V65H47z" fill="#24315f"/>
+</svg>
