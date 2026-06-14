@@ -14,6 +14,7 @@ mkdir -p "$HOME"
 
 bash -n "$repo_dir/bin/teams-pwa-linux"
 bash -n "$repo_dir/install.sh"
+bash -n "$repo_dir/extras/install-fonts.sh"
 
 "$repo_dir/install.sh" --no-mime >/tmp/teams-pwa-install.log
 

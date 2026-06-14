@@ -26,6 +26,28 @@ teams-pwa-linux
 
 The installer writes only user-level files under `~/.local` and `~/.config`.
 
+## Fonts
+
+If the Teams UI text looks off on Linux, the usual missing font is `Segoe UI`.
+The Ubuntu/Mint `ttf-mscorefonts-installer` package adds older Microsoft core
+web fonts such as Arial and Verdana, but it does not include Segoe UI.
+
+This repo includes an optional helper that installs Microsoft's open-source
+Segoe UI replacement, Selawik, and maps Teams' Segoe UI font requests to it for
+the current user:
+
+```bash
+./extras/install-fonts.sh
+```
+
+For better Office document and attachment fallbacks on apt-based distros:
+
+```bash
+./extras/install-fonts.sh --with-apt-compat
+```
+
+Restart the Teams PWA window after changing fonts.
+
 ## Browser Selection
 
 The launcher looks for browsers in this order:
@@ -112,6 +134,7 @@ Key sources checked on June 14, 2026:
 - Teams client system requirements: https://learn.microsoft.com/en-us/microsoftteams/teams-client-system-requirements
 - Teams web support page: https://support.microsoft.com/en-us/teams/meetings/use-microsoft-teams-on-the-web
 - cloud.microsoft Teams domain migration: https://devblogs.microsoft.com/microsoft365dev/action-required-ensure-your-microsoft-teams-apps-are-ready-for-upcoming-domain-changes/
+- Microsoft Selawik font: https://learn.microsoft.com/en-us/typography/font-list/selawik
 - Chromium user data directory docs: https://chromium.googlesource.com/chromium/src/+/HEAD/docs/user_data_dir.md
 - FreeDesktop desktop entry spec: https://specifications.freedesktop.org/desktop-entry/latest-single/
 - Existing Electron wrapper: https://github.com/IsmaelMartinez/teams-for-linux

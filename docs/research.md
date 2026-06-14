@@ -33,6 +33,32 @@ Source:
 
 - https://devblogs.microsoft.com/microsoft365dev/action-required-ensure-your-microsoft-teams-apps-are-ready-for-upcoming-domain-changes/
 
+## Font Rendering
+
+Teams and other Microsoft 365 web apps commonly request Windows-oriented font
+families such as `Segoe UI`, `Segoe UI Web`, `Calibri`, and `Cambria`. A stock
+Linux install may map `Segoe UI` to a generic sans-serif font, which changes
+spacing and can make the UI feel wrong.
+
+The proprietary Microsoft core fonts package on Ubuntu/Mint can add older web
+fonts such as Arial and Verdana, but it does not provide Segoe UI. Microsoft's
+open-source Selawik font is the better fit for Teams UI text: Microsoft
+documents Selawik as an open-source replacement for Segoe UI, and Windows
+typography guidance describes it as metrically compatible with Segoe UI for apps
+on other platforms.
+
+The project therefore provides `extras/install-fonts.sh` as an optional
+user-level helper. It installs Selawik from Microsoft's official GitHub release
+and writes fontconfig aliases mapping Teams' Segoe UI family names to Selawik.
+On apt-based distros, `--with-apt-compat` also installs Carlito, Caladea, and
+Liberation 2 for better Office-style fallbacks.
+
+Sources:
+
+- https://learn.microsoft.com/en-us/typography/font-list/selawik
+- https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/typography
+- https://github.com/microsoft/Selawik
+
 ## Existing Linux Wrapper
 
 The mature community option is `IsmaelMartinez/teams-for-linux`. It is active, widely used, and feature-rich. It supports notifications, tray integration, custom backgrounds, screen sharing, and multiple profiles. It also has more moving parts: Electron, DOM access, custom notification behavior, badge tracking, packaging across several systems, and Electron security tradeoffs documented by the project.
