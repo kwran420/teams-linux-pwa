@@ -47,10 +47,10 @@ documents Selawik as an open-source replacement for Segoe UI, and Windows
 typography guidance describes it as metrically compatible with Segoe UI for apps
 on other platforms.
 
-The project therefore provides `extras/install-fonts.sh` as an optional
-user-level helper. It installs Selawik from Microsoft's official GitHub release
-and writes fontconfig aliases mapping Teams' Segoe UI family names to Selawik.
-On apt-based distros, `--with-apt-compat` also installs Carlito, Caladea, and
+The project therefore runs Selawik setup by default from `install.sh`. The
+helper installs Selawik from Microsoft's official GitHub release and writes
+fontconfig aliases mapping Teams' Segoe UI family names to Selawik. On apt-based
+distros, `./install.sh --with-apt-fonts` also installs Carlito, Caladea, and
 Liberation 2 for better Office-style fallbacks.
 
 Sources:

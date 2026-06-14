@@ -18,13 +18,16 @@ Tauri is not a good fit for this specific app. On Linux, Tauri uses WebKitGTK; M
 ./install.sh
 ```
 
-Then launch **Teams PWA Linux** from the app menu, or run:
+The installer also installs the Selawik font setup used by Teams PWA Linux to
+render `Segoe UI` text correctly on Linux. Then launch **Teams PWA Linux** from
+the app menu, or run:
 
 ```bash
 teams-pwa-linux
 ```
 
 The installer writes only user-level files under `~/.local` and `~/.config`.
+Skip font setup with `./install.sh --no-fonts`.
 
 ## Fonts
 
@@ -32,18 +35,18 @@ If the Teams UI text looks off on Linux, the usual missing font is `Segoe UI`.
 The Ubuntu/Mint `ttf-mscorefonts-installer` package adds older Microsoft core
 web fonts such as Arial and Verdana, but it does not include Segoe UI.
 
-This repo includes an optional helper that installs Microsoft's open-source
-Segoe UI replacement, Selawik, and maps Teams' Segoe UI font requests to it for
-the current user:
+The main installer runs this setup by default. It installs Microsoft's
+open-source Segoe UI replacement, Selawik, and maps Teams' Segoe UI font
+requests to it for the current user:
 
 ```bash
-./extras/install-fonts.sh
+./install.sh
 ```
 
 For better Office document and attachment fallbacks on apt-based distros:
 
 ```bash
-./extras/install-fonts.sh --with-apt-compat
+./install.sh --with-apt-fonts
 ```
 
 Restart the Teams PWA window after changing fonts.
@@ -116,6 +119,7 @@ Uninstall the app entry and launcher:
 ```
 
 Profile data is intentionally left behind on uninstall. Remove it with `teams-pwa-linux reset-profile` first if you want a clean reinstall.
+User-installed fonts are also left behind because they may be useful outside this app.
 
 ## Validation
 

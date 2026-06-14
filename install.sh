@@ -14,6 +14,8 @@ launcher_file="$bindir/teams-pwa-linux"
 icon_file="$icons_dir/$APP_ID.svg"
 
 register_mime=1
+install_fonts=1
+install_apt_fonts=0
 dry_run=0
 uninstall=0
 
@@ -24,6 +26,8 @@ Install $APP_NAME for the current user.
 Usage:
   ./install.sh
   ./install.sh --no-mime
+  ./install.sh --no-fonts
+  ./install.sh --with-apt-fonts
   ./install.sh --dry-run
   ./install.sh --uninstall
 USAGE
@@ -40,6 +44,32 @@ run() {
     printf '\n'
   else
     "$@"
+  fi
+}
+
+install_font_setup() {
+  if [[ "$install_fonts" != "1" ]]; then
+    log "skipped font setup"
+    return 0
+  fi
+
+  local font_args=()
+  if [[ "$install_apt_fonts" == "1" ]]; then
+    font_args+=(--with-apt-compat)
+  fi
+
+  if [[ "$dry_run" == "1" ]]; then
+    printf 'dry-run:'
+    printf ' %q' "$repo_dir/extras/install-fonts.sh" "${font_args[@]}"
+    printf '\n'
+    return 0
+  fi
+
+  if ! "$repo_dir/extras/install-fonts.sh" "${font_args[@]}"; then
+    if [[ "$install_apt_fonts" == "1" ]]; then
+      return 1
+    fi
+    log "warning: font setup failed; run ./extras/install-fonts.sh manually for Segoe UI-compatible rendering"
   fi
 }
 
@@ -103,6 +133,8 @@ install_app() {
     xdg-mime default "$APP_ID.desktop" x-scheme-handler/ms-teams || true
   fi
 
+  install_font_setup
+
   log "installed launcher: $launcher_file"
   log "installed desktop entry: $desktop_file"
   log "installed icon: $icon_file"
@@ -130,6 +162,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --no-mime)
       register_mime=0
+      shift
+      ;;
+    --no-fonts)
+      install_fonts=0
+      shift
+      ;;
+    --with-apt-fonts)
+      install_fonts=1
+      install_apt_fonts=1
       shift
       ;;
     --dry-run)

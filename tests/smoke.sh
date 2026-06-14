@@ -16,7 +16,7 @@ bash -n "$repo_dir/bin/teams-pwa-linux"
 bash -n "$repo_dir/install.sh"
 bash -n "$repo_dir/extras/install-fonts.sh"
 
-"$repo_dir/install.sh" --no-mime >/tmp/teams-pwa-install.log
+"$repo_dir/install.sh" --no-mime --no-fonts >/tmp/teams-pwa-install.log
 
 desktop_file="$XDG_DATA_HOME/applications/io.github.kwran420.TeamsPwaLinux.desktop"
 test -x "$HOME/.local/bin/teams-pwa-linux"
